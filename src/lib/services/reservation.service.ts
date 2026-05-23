@@ -178,3 +178,42 @@ export async function releaseReservation(
     return updatedReservation;
   });
 }
+export async function cleanupExpiredReservations() {
+  const expiredReservations =
+    await prisma.reservation.findMany({
+      where: {
+        status: ReservationStatus.PENDING,
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+
+  for (const reservation of expiredReservations) {
+    await prisma.$transaction(async (tx) => {
+      // Reduce reserved units
+      await tx.inventory.update({
+        where: {
+          id: reservation.inventoryId,
+        },
+        data: {
+          reservedUnits: {
+            decrement: reservation.quantity,
+          },
+        },
+      });
+
+      // Mark reservation released
+      await tx.reservation.update({
+        where: {
+          id: reservation.id,
+        },
+        data: {
+          status: ReservationStatus.RELEASED,
+        },
+      });
+    });
+  }
+
+  return expiredReservations.length;
+}
