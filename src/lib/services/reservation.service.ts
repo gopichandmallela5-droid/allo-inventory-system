@@ -31,7 +31,7 @@ export async function createReservation(
     });
 
     if (!inventory) {
-      throw new Error("Inventory not found");
+      throw new Error("INVENTORY_NOT_FOUND");
     }
 
     const availableUnits =
@@ -41,7 +41,7 @@ export async function createReservation(
       throw new Error("INSUFFICIENT_STOCK");
     }
 
-    // Increase reserved stock
+    // Increase reserved units
     await tx.inventory.update({
       where: {
         id: inventory.id,
@@ -70,5 +70,63 @@ export async function createReservation(
     });
 
     return reservation;
+  });
+}
+
+export async function confirmReservation(
+  reservationId: string
+) {
+  return await prisma.$transaction(async (tx) => {
+    const reservation =
+      await tx.reservation.findUnique({
+        where: {
+          id: reservationId,
+        },
+      });
+
+    if (!reservation) {
+      throw new Error("RESERVATION_NOT_FOUND");
+    }
+
+    if (
+      reservation.status !==
+      ReservationStatus.PENDING
+    ) {
+      throw new Error("INVALID_RESERVATION_STATUS");
+    }
+
+    // Expired reservation
+    if (reservation.expiresAt < new Date()) {
+      throw new Error("RESERVATION_EXPIRED");
+    }
+
+    // Reduce inventory permanently
+    await tx.inventory.update({
+      where: {
+        id: reservation.inventoryId,
+      },
+      data: {
+        totalUnits: {
+          decrement: reservation.quantity,
+        },
+
+        reservedUnits: {
+          decrement: reservation.quantity,
+        },
+      },
+    });
+
+    // Update reservation status
+    const updatedReservation =
+      await tx.reservation.update({
+        where: {
+          id: reservation.id,
+        },
+        data: {
+          status: ReservationStatus.CONFIRMED,
+        },
+      });
+
+    return updatedReservation;
   });
 }
