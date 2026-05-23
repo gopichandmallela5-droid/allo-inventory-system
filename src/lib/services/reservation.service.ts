@@ -130,3 +130,51 @@ export async function confirmReservation(
     return updatedReservation;
   });
 }
+export async function releaseReservation(
+  reservationId: string
+) {
+  return await prisma.$transaction(async (tx) => {
+    const reservation =
+      await tx.reservation.findUnique({
+        where: {
+          id: reservationId,
+        },
+      });
+
+    if (!reservation) {
+      throw new Error("RESERVATION_NOT_FOUND");
+    }
+
+    if (
+      reservation.status !==
+      ReservationStatus.PENDING
+    ) {
+      throw new Error("INVALID_RESERVATION_STATUS");
+    }
+
+    // Release reserved units
+    await tx.inventory.update({
+      where: {
+        id: reservation.inventoryId,
+      },
+      data: {
+        reservedUnits: {
+          decrement: reservation.quantity,
+        },
+      },
+    });
+
+    // Update reservation status
+    const updatedReservation =
+      await tx.reservation.update({
+        where: {
+          id: reservation.id,
+        },
+        data: {
+          status: ReservationStatus.RELEASED,
+        },
+      });
+
+    return updatedReservation;
+  });
+}
