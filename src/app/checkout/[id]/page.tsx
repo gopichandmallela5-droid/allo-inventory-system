@@ -15,6 +15,34 @@ export default function CheckoutPage() {
   const [loading, setLoading] =
     useState(false);
 
+  const [timeLeft, setTimeLeft] =
+    useState(600);
+
+  // Countdown timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+
+          alert("Reservation expired");
+
+          router.push("/");
+
+          return 0;
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [router]);
+
+  const minutes = Math.floor(timeLeft / 60);
+
+  const seconds = timeLeft % 60;
+
   async function confirmPurchase() {
     try {
       setLoading(true);
@@ -69,10 +97,18 @@ export default function CheckoutPage() {
           Checkout
         </h1>
 
-        <p className="mb-6 text-gray-600">
-          Your reservation is active for
-          10 minutes.
-        </p>
+        <div className="mb-6">
+          <p className="text-gray-600">
+            Reservation expires in:
+          </p>
+
+          <p className="text-3xl font-bold mt-2">
+            {minutes}:
+            {seconds
+              .toString()
+              .padStart(2, "0")}
+          </p>
+        </div>
 
         <div className="flex gap-4">
           <button
