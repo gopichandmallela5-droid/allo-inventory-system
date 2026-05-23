@@ -1,6 +1,6 @@
-"use client";
-
+"use client"
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 
 interface Warehouse {
@@ -25,6 +25,7 @@ export default function HomePage() {
   );
 
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   async function fetchProducts() {
     try {
@@ -39,6 +40,38 @@ export default function HomePage() {
       setLoading(false);
     }
   }
+  async function reserveProduct(
+  productId: string,
+  warehouseId: string
+) {
+  try {
+    const response = await axios.post(
+      "/api/reservations",
+      {
+        productId,
+        warehouseId,
+        quantity: 1,
+        userId: "demo-user",
+      }
+    );
+
+    router.push(
+      `/checkout/${response.data.id}`
+    );
+  } catch (error: any) {
+    if (
+      error.response?.status === 409
+    ) {
+      alert(
+        "Not enough stock available"
+      );
+
+      return;
+    }
+
+    alert("Failed to reserve product");
+  }
+}
 
   useEffect(() => {
     fetchProducts();
@@ -109,6 +142,17 @@ export default function HomePage() {
                           warehouse.reservedUnits
                         }
                       </p>
+                      <button
+                      onClick={() =>
+                        reserveProduct(
+                          product.id,
+                          warehouse.warehouseId
+                        )
+                      }
+                      className="mt-3 bg-black text-white px-4 py-2 rounded-lg hover:opacity-90"
+                      >
+                        Reserve
+                        </button>
                     </div>
                   </div>
                 )
